@@ -1,0 +1,4 @@
+name: local
+provider: kind
+gitops: argocd
+description: Local kind cluster for ShopHub platform development.
