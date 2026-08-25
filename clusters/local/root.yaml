@@ -7,7 +7,7 @@ spec:
   project: default
   source:
     repoURL: https://github.com/Shoperator/devops-kube-state.git
-    targetRevision: feat/argocd-cluster-local
+    targetRevision: main
     path: clusters/local/apps
     directory:
       recurse: true
