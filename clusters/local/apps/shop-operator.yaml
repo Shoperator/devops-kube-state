@@ -10,7 +10,7 @@ spec:
   source:
     repoURL: ghcr.io/shoperator/charts
     chart: shop-operator
-    targetRevision: 0.1.0
+    targetRevision: 0.4.0
     helm:
       values: |
         image:
