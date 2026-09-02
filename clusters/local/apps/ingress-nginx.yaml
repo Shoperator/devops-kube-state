@@ -16,6 +16,10 @@ spec:
         controller:
           service:
             type: NodePort
+          metrics:
+            enabled: true
+            serviceMonitor:
+              enabled: true
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx
