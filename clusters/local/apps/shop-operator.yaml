@@ -15,6 +15,14 @@ spec:
       values: |
         image:
           tag: latest
+        # Sufiks pod kojim se objavljuje svaka prodavnica: Shop po imenu "x"
+        # se servira na "x.localhost". `localhost` jer browser sam razresava
+        # svako ime pod njim na loopback adresu, pa je prodavnica dostupna cim
+        # je deploy-ovana -- bez DNS zapisa i bez upisa u hosts fajl.
+        #
+        # ShopHub mora dobiti istu vrednost (vidi shophub.yaml): operator
+        # upisuje Ingress host, ShopHub pravi link koji vlasnik otvara.
+        shopBaseDomain: localhost
   destination:
     server: https://kubernetes.default.svc
     namespace: shop-operator
