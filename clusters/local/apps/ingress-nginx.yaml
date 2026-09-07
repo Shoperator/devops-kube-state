@@ -14,6 +14,30 @@ spec:
     helm:
       values: |
         controller:
+          # Ovo je ono sto uopste otvara port 80 na kind klasteru.
+          #
+          # kind objavljuje portove 80 i 443 control-plane cvora na host, pa
+          # zahtev ide: browser -> 127.0.0.1:80 -> cvor:80 -> nginx. Za to
+          # nesto mora da slusa na portu 80 samog cvora, i hostPort je ono sto
+          # ga zauzima. NodePort Service bi dobio port iz opsega 30000-32767,
+          # koji niko ne prosledjuje.
+          hostPort:
+            enabled: true
+
+          # Samo control-plane cvor ima te port mapping-e; kind-config ga zbog
+          # toga i obelezava sa ingress-ready. Na worker cvoru bi kontroler
+          # bio zdrav a zauzeo port do kojeg niko ne dolazi.
+          nodeSelector:
+            ingress-ready: "true"
+
+          # kind zadrzava control-plane taint na klasterima sa vise cvorova, a
+          # ovaj ima worker -- bez toleracije kontroler ne moze da se rasporedi
+          # na jedini cvor koji radi.
+          tolerations:
+            - key: node-role.kubernetes.io/control-plane
+              operator: Equal
+              effect: NoSchedule
+
           service:
             type: NodePort
           metrics:

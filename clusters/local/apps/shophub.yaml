@@ -1,0 +1,52 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: shophub
+  namespace: argocd
+  annotations:
+    # Posle operatora: ShopHub kreira Shop resurse, a CRD-ovi za njih stizu sa
+    # shop-operator chart-om u wave 1.
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/shoperator/charts
+    chart: shophub
+    targetRevision: 0.2.0
+    helm:
+      values: |
+        ingress:
+          host: shophub.localhost
+
+        # Mora biti jednako `shopBaseDomain` u shop-operator.yaml.
+        shopBaseDomain: localhost
+
+        # Prodavnice se kreiraju ovde, i ShopHub dobija prava nad shops samo u
+        # ovom namespace-u.
+        shopNamespace: default
+
+        # Chart moze da povuce sopstveni kube-prometheus-stack, ali ga ovaj
+        # klaster instalira jednom, za ceo klaster (kube-prometheus-stack.yaml).
+        # Dva bi znacila dva Prometheus operatora i dve kopije CRD-ova.
+        monitoring:
+          enabled: false
+
+        auth:
+          # ArgoCD renderuje chart bez pristupa klasteru, pa bi generisan kljuc
+          # bio nov pri svakoj sinhronizaciji i odjavio bi sve korisnike.
+          # Napravi Secret jednom, u namespace-u ove aplikacije:
+          #
+          #   kubectl create namespace shophub
+          #   kubectl create secret generic shophub-auth -n shophub \
+          #     --from-literal=JWT_SECRET="$(openssl rand -hex 32)"
+          existingSecret: shophub-auth
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: shophub
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
