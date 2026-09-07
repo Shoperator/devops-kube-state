@@ -13,7 +13,7 @@ Deklarativno stanje klastera (GitOps preko ArgoCD). App-of-apps root:
 | 0 | `redis-operator` | Operator za Redis -- `light` izbor baze |
 | 1 | `shop-operator` | Instalira Shop/DiscordChannel/Wallet CRD-ove i pokreće operator |
 | 1 | `observability-dashboards` | Grafana dashboard po prodavnici |
-| 2 | `shophub` | Kreira Shop resurse, pa mu CRD-ovi iz wave 1 moraju već postojati |
+| 2 | `shophub` | Kreira Shop resurse, pa CRD-ovi iz wave 1 moraju već postojati |
 
 ## Domen prodavnica
 
@@ -46,6 +46,41 @@ upisuje custom resource koji operator te baze prati:
 Ako operator baze nije instaliran, prodavnica se svejedno deploy-uje i čeka
 svoju bazu.
 
+## Bootstrap klastera
+
+Klaster se pravi iz `clusters/local/kind-config.yaml`, koji je deo ovog
+repozitorijuma jer je **preduslov** za `apps/ingress-nginx.yaml`. Kontroler se
+vezuje za `hostPort` 80/443 i bira cvor preko `nodeSelector: ingress-ready`, a
+oba se podesavaju samo pri kreiranju klastera -- na postojecem klasteru se ne
+mogu dodati. Klaster napravljen bez ovog fajla ostavlja ingress kontroler u
+Pending stanju.
+
+```bash
+kind create cluster --config clusters/local/kind-config.yaml
+
+kubectl create namespace argocd
+kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+kubectl -n argocd rollout status deploy/argocd-server --timeout=5m
+
+# registruje OCI registry sa kojeg se povlace chart-ovi
+kubectl apply -f clusters/local/argocd/repo-ghcr-charts.yaml
+
+# vidi "Pre prve sinhronizacije" ispod
+kubectl create namespace shophub
+kubectl create secret generic shophub-auth -n shophub --from-literal=JWT_SECRET="$(openssl rand -hex 32)"
+
+# app-of-apps -- sve ostalo ide odavde
+kubectl apply -f clusters/local/root.yaml
+kubectl -n argocd get applications -w
+```
+
+Provera da je wave 0 zaista prosao:
+
+```bash
+kubectl -n ingress-nginx get pods -o wide   # Running, NODE = shophub-control-plane
+curl -i http://localhost/                   # 404 od nginx-a znaci da slusa
+```
+
 ## Pre prve sinhronizacije
 
 ShopHub potpisuje access token-e ključem iz Secret-a. ArgoCD renderuje chart bez
@@ -65,6 +100,7 @@ kube-state
 └── clusters/
     └── local/
         ├── cluster.yaml          # metapodaci klastera
+        ├── kind-config.yaml      # ulaz za `kind create cluster` (nije ArgoCD)
         ├── root.yaml             # app-of-apps
         ├── argocd/               # repo credentials
         ├── apps/                 # child aplikacije
