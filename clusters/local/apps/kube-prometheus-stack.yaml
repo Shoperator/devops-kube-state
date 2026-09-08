@@ -21,6 +21,24 @@ spec:
             podMonitorSelectorNilUsesHelmValues: false
             ruleSelectorNilUsesHelmValues: false
             probeSelectorNilUsesHelmValues: false
+        alertmanager:
+          alertmanagerSpec:
+            secrets:
+              - alertmanager-discord
+          config:
+            route:
+              receiver: 'discord'
+              group_by: ['alertname', 'namespace']
+              group_wait: 30s
+              group_interval: 5m
+              repeat_interval: 4h
+              routes:
+                - receiver: 'discord'
+            receivers:
+              - name: 'discord'
+                discord_configs:
+                  - webhook_url_file: /etc/alertmanager/secrets/alertmanager-discord/webhook-url
+                    send_resolved: true
   destination:
     server: https://kubernetes.default.svc
     namespace: monitoring
