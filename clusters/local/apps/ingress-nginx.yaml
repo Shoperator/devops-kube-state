@@ -44,6 +44,9 @@ spec:
             enabled: true
             serviceMonitor:
               enabled: true
+          config:
+            log-format-escape-json: "true"
+            log-format-upstream: '{"time":"$time_iso8601","remote_addr":"$remote_addr","host":"$host","method":"$request_method","path":"$uri","status":$status,"user_agent":"$http_user_agent","bytes_sent":$bytes_sent,"request_time":$request_time}'
   destination:
     server: https://kubernetes.default.svc
     namespace: ingress-nginx

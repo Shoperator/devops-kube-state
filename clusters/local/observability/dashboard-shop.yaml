@@ -4,133 +4,104 @@ metadata:
   name: grafana-dashboard-shop
   namespace: monitoring
   labels:
-    # The kube-prometheus-stack Grafana sidecar imports every ConfigMap with
-    # this label as a dashboard, so this is all it takes to ship one via GitOps.
     grafana_dashboard: "1"
   annotations:
-    # Folder the dashboard lands in inside Grafana.
     k8s-sidecar-target-directory: "/tmp/dashboards/ShopHub"
 data:
-  shop-http.json: |
+  shop-metrics.json: |
     {
       "annotations": { "list": [] },
       "editable": true,
       "schemaVersion": 39,
-      "title": "Shop — HTTP (per shop)",
+      "title": "Shop — Metrics (per shop)",
       "tags": ["shop", "shophub"],
-      "time": { "from": "now-1h", "to": "now" },
+      "time": { "from": "now-24h", "to": "now" },
       "templating": {
         "list": [
-          {
-            "name": "datasource",
-            "type": "datasource",
-            "query": "prometheus",
-            "hide": 0,
-            "current": {}
-          },
-          {
-            "name": "host",
-            "type": "query",
-            "datasource": { "type": "prometheus", "uid": "${datasource}" },
-            "query": "label_values(nginx_ingress_controller_requests, host)",
-            "refresh": 2,
-            "sort": 1,
-            "includeAll": false,
-            "multi": false,
-            "current": {}
-          }
+          { "name": "datasource", "type": "datasource", "query": "prometheus", "hide": 0, "current": {} },
+          { "name": "shop", "type": "textbox", "label": "Shop slug", "query": "proba", "current": { "text": "proba", "value": "proba" } }
         ]
       },
       "panels": [
         {
-          "id": 1,
-          "type": "stat",
-          "title": "Requests/s",
+          "id": 1, "type": "stat", "title": "Total requests (24h)",
           "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-          "targets": [
-            {
-              "refId": "A",
-              "datasource": { "type": "prometheus", "uid": "${datasource}" },
-              "expr": "sum(rate(nginx_ingress_controller_requests{host=\"$host\"}[5m]))"
-            }
-          ]
+          "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(nginx_ingress_controller_requests{host=\"$shop.localhost\"}[24h]))" } ]
         },
         {
-          "id": 2,
-          "type": "stat",
-          "title": "5xx/s",
+          "id": 2, "type": "stat", "title": "Success 2xx/3xx (24h)",
           "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "reqps",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  { "color": "green", "value": null },
-                  { "color": "red", "value": 0.01 }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "datasource": { "type": "prometheus", "uid": "${datasource}" },
-              "expr": "sum(rate(nginx_ingress_controller_requests{host=\"$host\",status=~\"5..\"}[5m]))"
-            }
-          ]
+          "fieldConfig": { "defaults": { "unit": "short", "color": { "mode": "fixed", "fixedColor": "green" } }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(nginx_ingress_controller_requests{host=\"$shop.localhost\", status=~\"2..|3..\"}[24h]))" } ]
         },
         {
-          "id": 3,
-          "type": "timeseries",
-          "title": "Requests by status",
-          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 0 },
+          "id": 3, "type": "stat", "title": "Errors 4xx/5xx (24h)",
+          "gridPos": { "h": 6, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(nginx_ingress_controller_requests{host=\"$shop.localhost\", status=~\"4..|5..\"}[24h]))" } ]
+        },
+        {
+          "id": 4, "type": "stat", "title": "Traffic (24h)",
+          "gridPos": { "h": 6, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "decbytes" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum(increase(nginx_ingress_controller_request_size_sum{host=\"$shop.localhost\"}[24h])) + sum(increase(nginx_ingress_controller_response_size_sum{host=\"$shop.localhost\"}[24h]))" } ]
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "Requests by status",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-          "targets": [
-            {
-              "refId": "A",
-              "datasource": { "type": "prometheus", "uid": "${datasource}" },
-              "expr": "sum by (status) (rate(nginx_ingress_controller_requests{host=\"$host\"}[5m]))",
-              "legendFormat": "{{status}}"
-            }
-          ]
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (status) (rate(nginx_ingress_controller_requests{host=\"$shop.localhost\"}[5m]))", "legendFormat": "{{status}}" } ]
         },
         {
-          "id": 4,
-          "type": "timeseries",
-          "title": "p95 latency",
-          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 9 },
+          "id": 6, "type": "timeseries", "title": "p95 latency",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
           "fieldConfig": { "defaults": { "unit": "s" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{host=\"$shop.localhost\"}[5m])))", "legendFormat": "p95" } ]
+        },
+        {
+          "id": 7, "type": "timeseries", "title": "Requests by path",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 14 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (path) (rate(nginx_ingress_controller_requests{host=\"$shop.localhost\"}[5m]))", "legendFormat": "{{path}}" } ]
+        },
+        {
+          "id": 8, "type": "timeseries", "title": "CPU (cores) by pod",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 14 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (pod) (rate(container_cpu_usage_seconds_total{namespace=\"default\", pod=~\"$shop-.*\", container!=\"\"}[5m]))", "legendFormat": "{{pod}}" } ]
+        },
+        {
+          "id": 9, "type": "timeseries", "title": "Memory (working set) by pod",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 22 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (pod) (container_memory_working_set_bytes{namespace=\"default\", pod=~\"$shop-.*\", container!=\"\"})", "legendFormat": "{{pod}}" } ]
+        },
+        {
+          "id": 10, "type": "timeseries", "title": "Network I/O by pod",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 22 },
+          "datasource": { "type": "prometheus", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "Bps" }, "overrides": [] },
           "targets": [
-            {
-              "refId": "A",
-              "datasource": { "type": "prometheus", "uid": "${datasource}" },
-              "expr": "histogram_quantile(0.95, sum by (le) (rate(nginx_ingress_controller_request_duration_seconds_bucket{host=\"$host\"}[5m])))",
-              "legendFormat": "p95"
-            }
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (pod) (rate(container_network_receive_bytes_total{namespace=\"default\", pod=~\"$shop-.*\"}[5m]))", "legendFormat": "in {{pod}}" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (pod) (rate(container_network_transmit_bytes_total{namespace=\"default\", pod=~\"$shop-.*\"}[5m]))", "legendFormat": "out {{pod}}" }
           ]
         },
         {
-          "id": 5,
-          "type": "timeseries",
-          "title": "Requests by path",
-          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 9 },
+          "id": 11, "type": "timeseries", "title": "Filesystem usage by pod",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 30 },
           "datasource": { "type": "prometheus", "uid": "${datasource}" },
-          "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-          "targets": [
-            {
-              "refId": "A",
-              "datasource": { "type": "prometheus", "uid": "${datasource}" },
-              "expr": "sum by (path) (rate(nginx_ingress_controller_requests{host=\"$host\"}[5m]))",
-              "legendFormat": "{{path}}"
-            }
-          ]
+          "fieldConfig": { "defaults": { "unit": "bytes" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "${datasource}" }, "expr": "sum by (pod) (container_fs_usage_bytes{namespace=\"default\", pod=~\"$shop-.*\", container!=\"\"})", "legendFormat": "{{pod}}" } ]
         }
       ]
     }

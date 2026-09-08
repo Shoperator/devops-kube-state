@@ -1,0 +1,71 @@
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shop-and-cluster-alerts
+  namespace: monitoring
+  labels:
+    # Prometheus is configured with ruleSelectorNilUsesHelmValues=false, so it
+    # picks up every PrometheusRule regardless of label — this is just for tidiness.
+    release: kube-prometheus-stack
+spec:
+  groups:
+    - name: shop.rules
+      rules:
+        # Sustained 5xx on any shop host (x.localhost) — the app is erroring.
+        - alert: ShopHigh5xxRate
+          expr: |
+            sum by (host) (rate(nginx_ingress_controller_requests{status=~"5..", host=~".+\\.localhost"}[5m])) > 0.2
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High 5xx rate on {{ $labels.host }}"
+            description: "{{ $labels.host }} is serving >0.2 5xx req/s over the last 5m."
+        # A shop's backend has no available replicas — the storefront is down.
+        - alert: ShopBackendDown
+          expr: |
+            kube_deployment_status_replicas_available{namespace="default", deployment=~".+-backend"} < 1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Shop backend {{ $labels.deployment }} has no available replicas"
+            description: "Deployment {{ $labels.deployment }} in {{ $labels.namespace }} is down."
+    - name: cluster.rules
+      rules:
+        - alert: NodeHighCPU
+          expr: |
+            (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High CPU on {{ $labels.instance }}"
+            description: "Node {{ $labels.instance }} CPU usage >90% for 10m."
+        - alert: NodeHighMemory
+          expr: |
+            (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.9
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High memory on {{ $labels.instance }}"
+            description: "Node {{ $labels.instance }} memory usage >90% for 10m."
+        - alert: NodeDiskPressure
+          expr: |
+            (1 - (node_filesystem_avail_bytes{mountpoint="/"} / node_filesystem_size_bytes{mountpoint="/"})) > 0.85
+          for: 10m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Disk filling up on {{ $labels.instance }}"
+            description: "Root filesystem on {{ $labels.instance }} is >85% full."
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total[15m]) > 3
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.namespace }}/{{ $labels.pod }} is crash-looping"
+            description: "Container {{ $labels.container }} restarted >3 times in 15m."
