@@ -1,0 +1,74 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-shop-logs
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    k8s-sidecar-target-directory: "/tmp/dashboards/ShopHub"
+data:
+  shop-logs.json: |
+    {
+      "annotations": { "list": [] },
+      "editable": true,
+      "schemaVersion": 39,
+      "title": "Shop — Logs (per shop)",
+      "tags": ["shop", "shophub", "logs"],
+      "time": { "from": "now-24h", "to": "now" },
+      "templating": {
+        "list": [
+          { "name": "datasource", "type": "datasource", "query": "loki", "hide": 0, "current": {} },
+          { "name": "shop", "type": "textbox", "label": "Shop slug", "query": "proba", "current": { "text": "proba", "value": "proba" } }
+        ]
+      },
+      "panels": [
+        {
+          "id": 1, "type": "stat", "title": "Unique visitors (24h)",
+          "gridPos": { "h": 6, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "short" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" }, "queryType": "instant",
+            "expr": "count(sum by (remote_addr, user_agent) (count_over_time({namespace=\"ingress-nginx\"} | json | host=\"$shop.localhost\" [24h])))" } ]
+        },
+        {
+          "id": 2, "type": "stat", "title": "404s (24h)",
+          "gridPos": { "h": 6, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "orange", "value": 1 } ] } }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" }, "queryType": "instant",
+            "expr": "sum(count_over_time({namespace=\"ingress-nginx\"} | json | host=\"$shop.localhost\" | status=\"404\" [24h]))" } ]
+        },
+        {
+          "id": 3, "type": "table", "title": "404 by endpoint (24h)",
+          "gridPos": { "h": 6, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" }, "queryType": "instant", "format": "table",
+            "expr": "sum by (path) (count_over_time({namespace=\"ingress-nginx\"} | json | host=\"$shop.localhost\" | status=\"404\" [24h]))" } ]
+        },
+        {
+          "id": 4, "type": "timeseries", "title": "Log lines / min by container",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "logs" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" },
+            "expr": "sum by (container) (count_over_time({namespace=\"default\", pod=~\"$shop-.*\"}[1m]))", "legendFormat": "{{container}}" } ]
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "Error lines / min",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 6 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "fieldConfig": { "defaults": { "unit": "logs" }, "overrides": [] },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" },
+            "expr": "sum(count_over_time({namespace=\"default\", pod=~\"$shop-.*\"} |~ \"(?i)error|exception|fatal\"[1m]))", "legendFormat": "errors" } ]
+        },
+        {
+          "id": 6, "type": "logs", "title": "Live logs",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 14 },
+          "datasource": { "type": "loki", "uid": "${datasource}" },
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending" },
+          "targets": [ { "refId": "A", "datasource": { "type": "loki", "uid": "${datasource}" },
+            "expr": "{namespace=\"default\", pod=~\"$shop-.*\"}" } ]
+        }
+      ]
+    }
