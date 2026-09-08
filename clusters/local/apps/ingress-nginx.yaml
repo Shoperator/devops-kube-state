@@ -30,14 +30,6 @@ spec:
           nodeSelector:
             ingress-ready: "true"
 
-          # kind zadrzava control-plane taint na klasterima sa vise cvorova, a
-          # ovaj ima worker -- bez toleracije kontroler ne moze da se rasporedi
-          # na jedini cvor koji radi.
-          tolerations:
-            - key: node-role.kubernetes.io/control-plane
-              operator: Equal
-              effect: NoSchedule
-
           service:
             type: NodePort
           metrics:
