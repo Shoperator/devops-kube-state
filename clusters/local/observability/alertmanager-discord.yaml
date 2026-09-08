@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: discord
+  namespace: monitoring
+  labels:
+    # Selected by the Alertmanager via alertmanagerConfigSelector (see the
+    # kube-prometheus-stack values).
+    alertmanagerConfig: discord
+spec:
+  route:
+    receiver: discord
+    groupBy: ["alertname", "namespace"]
+    groupWait: 30s
+    groupInterval: 5m
+    repeatInterval: 4h
+  receivers:
+    - name: discord
+      discordConfigs:
+        # The webhook URL is read from the alertmanager-discord Secret (same
+        # namespace), so it never lands in git. The operator resolves it when it
+        # generates the Alertmanager config — unlike inline `webhook_url_file`,
+        # which the operator's config validation rejects.
+        - apiURL:
+            name: alertmanager-discord
+            key: webhook-url
+          sendResolved: true
