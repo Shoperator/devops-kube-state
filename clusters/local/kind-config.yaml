@@ -7,15 +7,15 @@
 #
 #   kind create cluster --config clusters/local/kind-config.yaml
 #
+# Jedan cvor: na single-node klasteru kind uklanja control-plane taint, pa sve
+# (ukljucujuci monitoring) staje na taj cvor -- nema vise "samo worker moze".
+# Stabilnije na WSL-u nego dvocvorni klaster (worker je znao da pada).
+#
 # Dve stvari ispod su preduslov za `ingress-nginx` iz apps/ingress-nginx.yaml, a
-# obe se mogu podesiti SAMO pri kreiranju klastera -- na postojecem klasteru se
-# ne mogu dodati:
+# obe se mogu podesiti SAMO pri kreiranju klastera:
 #
 #   - node-labels: ingress-ready=true -> nodeSelector kontrolera bira ovaj cvor
 #   - extraPortMappings 80/443        -> host portovi izlaze na ovaj cvor
-#
-# Bez njih kontroler ostaje Pending (nema cvora koji zadovoljava nodeSelector),
-# ili se podigne i zauzme port do kojeg sa hosta niko ne dolazi.
 kind: Cluster
 apiVersion: kind.x-k8s.io/v1alpha4
 name: shophub
@@ -35,7 +35,3 @@ nodes:
       - containerPort: 443
         hostPort: 443
         protocol: TCP
-  # Zbog worker cvora kind zadrzava control-plane taint (na klasteru sa jednim
-  # cvorom ga uklanja), pa ingress-nginx mora imati toleraciju -- vidi
-  # apps/ingress-nginx.yaml.
-  - role: worker
