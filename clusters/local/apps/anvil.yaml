@@ -1,0 +1,36 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: anvil
+  namespace: argocd
+  annotations:
+    # Wave 0: lanac postoji pre nego sto operator napravi ijednu prodavnicu.
+    # Prodavnica bi se podigla i bez njega, ali bi svaka uplata pala na
+    # nedostupan RPC dok Anvil ne stigne.
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: ghcr.io/shoperator/charts
+    chart: anvil
+    targetRevision: 1.0.0
+    helm:
+      values: |
+        anvil:
+          # Mora da se poklapa sa `chain.id` u shop-operator.yaml i sa mrezom
+          # koju je kupac dodao u MetaMask.
+          chainId: 31337
+  destination:
+    server: https://kubernetes.default.svc
+    # Isti namespace u kojem zive prodavnice (vidi `shopNamespace` u
+    # shophub.yaml), pa `http://anvil.default.svc.cluster.local:8545` --
+    # podrazumevani `chain.rpcUrl` operatora -- razresava bez dodatnog
+    # podesavanja.
+    namespace: default
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
