@@ -34,8 +34,16 @@ spec:
               // Pull namespace / pod / container out of the file path and set
               // them as Loki labels, so a dashboard can filter by shop.
               loki.process "pods" {
+                // Strip the CRI wrapper (<time> <stream> <flag>) so the stored
+                // line is the raw log — required so the ingress-nginx JSON
+                // access logs parse with `| json` (unique visitors / 404-by-path).
+                stage.cri {}
+
+                // namespace/pod/container come from the file path, so match the
+                // `filename` label rather than the (now de-CRI'd) log line.
                 stage.regex {
                   expression = "/var/log/pods/(?P<namespace>[^_]+)_(?P<pod>[^_]+)_[^/]+/(?P<container>[^/]+)/[0-9]+\\.log"
+                  source     = "filename"
                 }
                 stage.labels {
                   values = {
