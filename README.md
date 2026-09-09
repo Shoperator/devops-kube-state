@@ -59,7 +59,10 @@ Pending stanju.
 kind create cluster --config clusters/local/kind-config.yaml
 
 kubectl create namespace argocd
-kubectl apply -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
+# --server-side je obavezan: applicationsets CRD je veci od 262144 bajta,
+# koliko staje u anotaciju koju klijentski `apply` upisuje uz resurs. Bez
+# njega prolazi sve osim tog jednog CRD-a, i to bez prekida instalacije.
+kubectl apply --server-side -n argocd -f https://raw.githubusercontent.com/argoproj/argo-cd/stable/manifests/install.yaml
 kubectl -n argocd rollout status deploy/argocd-server --timeout=5m
 
 # registruje OCI registry sa kojeg se povlace chart-ovi
@@ -85,13 +88,11 @@ curl -i http://localhost/                   # 404 od nginx-a znaci da slusa
 
 ShopHub potpisuje access token-e ključem iz Secret-a. ArgoCD renderuje chart bez
 pristupa klasteru, pa bi generisan ključ bio nov pri svakoj sinhronizaciji i
-odjavio bi sve korisnike. Napravi ga jednom:
+odjavio bi sve korisnike. Zato se pravi jednom, ručno, i to **pre** nego što
+`root.yaml` pusti `shophub` aplikaciju — komande su u bootstrap bloku iznad.
 
-```bash
-kubectl create namespace shophub
-kubectl create secret generic shophub-auth -n shophub \
-  --from-literal=JWT_SECRET="$(openssl rand -hex 32)"
-```
+Ključ nije u ovom repozitorijumu i ne vraća ga nijedan sync: novi klaster znači
+novi ključ, i time odjavu svih postojećih korisnika.
 
 ## Struktura
 
